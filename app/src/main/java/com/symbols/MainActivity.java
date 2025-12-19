@@ -5,10 +5,13 @@ import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.os.Bundle;
+import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.BaseExpandableListAdapter;
-import android.widget.ExpandableListView;
+import android.widget.BaseAdapter;
+import android.widget.GridView;
+import android.widget.LinearLayout;
+import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 import java.util.ArrayList;
@@ -18,28 +21,18 @@ import java.util.Map;
 
 public class MainActivity extends Activity {
     
-    private ExpandableListView listView;
-    private SymbolAdapter adapter;
+    private ListView listView;
+    private CategoryAdapter adapter;
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         
-        listView = new ExpandableListView(this);
+        listView = new ListView(this);
         setContentView(listView);
         
-        adapter = new SymbolAdapter(this, getSymbolData());
+        adapter = new CategoryAdapter(this, getSymbolData());
         listView.setAdapter(adapter);
-        
-        listView.setOnChildClickListener((parent, v, groupPosition, childPosition, id) -> {
-            String symbol = adapter.getChild(groupPosition, childPosition);
-            copyToClipboard(symbol);
-            return true;
-        });
-        
-        for (int i = 0; i < adapter.getGroupCount(); i++) {
-            listView.expandGroup(i);
-        }
     }
     
     private void copyToClipboard(String text) {
@@ -127,81 +120,128 @@ public class MainActivity extends Activity {
         return data;
     }
     
-    private static class SymbolAdapter extends BaseExpandableListAdapter {
+    private class CategoryAdapter extends BaseAdapter {
         private Context context;
-        private List<String> groups;
-        private Map<String, List<String>> children;
+        private List<Category> categories;
         
-        public SymbolAdapter(Context context, Map<String, List<String>> data) {
+        public CategoryAdapter(Context context, Map<String, List<String>> data) {
             this.context = context;
-            this.groups = new ArrayList<>(data.keySet());
-            this.children = data;
+            this.categories = new ArrayList<>();
+            for (Map.Entry<String, List<String>> entry : data.entrySet()) {
+                categories.add(new Category(entry.getKey(), entry.getValue()));
+            }
         }
         
         @Override
-        public int getGroupCount() {
-            return groups.size();
+        public int getCount() {
+            return categories.size();
         }
         
         @Override
-        public int getChildrenCount(int groupPosition) {
-            return children.get(groups.get(groupPosition)).size();
+        public Category getItem(int position) {
+            return categories.get(position);
         }
         
         @Override
-        public String getGroup(int groupPosition) {
-            return groups.get(groupPosition);
+        public long getItemId(int position) {
+            return position;
         }
         
         @Override
-        public String getChild(int groupPosition, int childPosition) {
-            return children.get(groups.get(groupPosition)).get(childPosition);
+        public View getView(int position, View convertView, ViewGroup parent) {
+            LinearLayout layout = new LinearLayout(context);
+            layout.setOrientation(LinearLayout.VERTICAL);
+            layout.setPadding(20, 20, 20, 20);
+            
+            Category category = getItem(position);
+            
+            TextView title = new TextView(context);
+            title.setText(category.name);
+            title.setTextSize(18);
+            title.setTextColor(0xFF000000);
+            title.setPadding(10, 10, 10, 15);
+            layout.addView(title);
+            
+            GridView grid = new GridView(context);
+            grid.setNumColumns(GridView.AUTO_FIT);
+            grid.setColumnWidth(100);
+            grid.setStretchMode(GridView.STRETCH_SPACING);
+            grid.setVerticalSpacing(10);
+            grid.setHorizontalSpacing(10);
+            grid.setPadding(10, 0, 10, 10);
+            
+            SymbolGridAdapter gridAdapter = new SymbolGridAdapter(context, category.symbols);
+            grid.setAdapter(gridAdapter);
+            
+            int totalHeight = 0;
+            int desiredWidth = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED);
+            for (int i = 0; i < gridAdapter.getCount(); i++) {
+                View listItem = gridAdapter.getView(i, null, grid);
+                listItem.measure(desiredWidth, View.MeasureSpec.UNSPECIFIED);
+                totalHeight = listItem.getMeasuredHeight();
+            }
+            int numColumns = 6;
+            int numRows = (int) Math.ceil((double) gridAdapter.getCount() / numColumns);
+            ViewGroup.LayoutParams params = new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 
+                totalHeight * numRows + 10 * (numRows - 1) + 20);
+            grid.setLayoutParams(params);
+            
+            grid.setOnItemClickListener((parent1, view, pos, id) -> {
+                String symbol = gridAdapter.getItem(pos);
+                copyToClipboard(symbol);
+            });
+            
+            layout.addView(grid);
+            return layout;
+        }
+    }
+    
+    private static class Category {
+        String name;
+        List<String> symbols;
+        
+        Category(String name, List<String> symbols) {
+            this.name = name;
+            this.symbols = symbols;
+        }
+    }
+    
+    private static class SymbolGridAdapter extends BaseAdapter {
+        private Context context;
+        private List<String> symbols;
+        
+        public SymbolGridAdapter(Context context, List<String> symbols) {
+            this.context = context;
+            this.symbols = symbols;
         }
         
         @Override
-        public long getGroupId(int groupPosition) {
-            return groupPosition;
+        public int getCount() {
+            return symbols.size();
         }
         
         @Override
-        public long getChildId(int groupPosition, int childPosition) {
-            return childPosition;
+        public String getItem(int position) {
+            return symbols.get(position);
         }
         
         @Override
-        public boolean hasStableIds() {
-            return false;
+        public long getItemId(int position) {
+            return position;
         }
         
         @Override
-        public View getGroupView(int groupPosition, boolean isExpanded, View convertView, ViewGroup parent) {
+        public View getView(int position, View convertView, ViewGroup parent) {
             TextView textView = (TextView) convertView;
             if (textView == null) {
                 textView = new TextView(context);
-                textView.setPadding(60, 30, 30, 30);
-                textView.setTextSize(18);
+                textView.setTextSize(24);
+                textView.setGravity(Gravity.CENTER);
+                textView.setPadding(15, 15, 15, 15);
+                textView.setTextColor(0xFF0000FF);
             }
-            textView.setText(getGroup(groupPosition));
-            textView.setTextColor(0xFF000000);
+            textView.setText(getItem(position));
             return textView;
-        }
-        
-        @Override
-        public View getChildView(int groupPosition, int childPosition, boolean isLastChild, View convertView, ViewGroup parent) {
-            TextView textView = (TextView) convertView;
-            if (textView == null) {
-                textView = new TextView(context);
-                textView.setPadding(120, 30, 30, 30);
-                textView.setTextSize(28);
-            }
-            textView.setText(getChild(groupPosition, childPosition));
-            textView.setTextColor(0xFF0000FF);
-            return textView;
-        }
-        
-        @Override
-        public boolean isChildSelectable(int groupPosition, int childPosition) {
-            return true;
         }
     }
 }
