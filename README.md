@@ -36,6 +36,15 @@ Example integration:
 </script>
 ```
 
+## Terminal version
+
+A standalone terminal picker is available under `terminal/`.
+
+- Run it with `node terminal/symbol-picker.js`
+- Use the arrow keys to move the highlight and press Enter to copy the selected symbol
+- Press `q` to quit
+- On Linux, clipboard copy uses `wl-copy`, `xclip`, or `xsel` if available
+
 ## Categories
 
 - **Arrows**: ←, →, ⇒, ⟶, etc.
